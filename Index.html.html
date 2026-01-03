@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BudgetFlow - Aplikasi Anggaran Bulanan</title>
+    
+    <!-- PWA / Mobile App Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#059669">
+    <meta name="application-name" content="BudgetFlow">
+    
+    <!-- Embedded Manifest for PWA (Add to Homescreen support) -->
+    <link rel="manifest" href='data:application/manifest+json;base64,eyJuYW1lIjoiQnVkZ2V0RmxvdyAtIENla2xpcyBBbmdnYXJhbiIsInNob3J0X25hbWUiOiJCdWRnZXRGbG93Iiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmOGZhZmMiLCJ0aGVtZV9jb2xvciI6IiMwNTk2NjkiLCJkZXNjcmlwdGlvbiI6IkFwbGlrYXNpIGtlbG9sYSBhbmdnYXJhbiBidWxhbmFuIHNpbXBlbCJ9'>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Google Font (Opsional, agar lebih cantik) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Hide Scrollbar but keep functionality */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Print Styles */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; color: black; }
+            .page-break { page-break-before: always; }
+            .shadow-lg, .shadow-md { box-shadow: none !important; }
+            .bg-emerald-600 { background-color: transparent !important; color: black !important; }
+            .text-white { color: black !important; }
+            input { border: none !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-20 md:pb-10 min-h-screen relative">
+
+    <!-- HIDDEN FILE INPUT FOR IMPORT -->
+    <input type="file" id="fileInput" accept=".json" class="hidden" onchange="handleFileImport(this)">
+
+    <!-- HEADER (Global Summary) -->
+    <header class="bg-emerald-600 text-white pt-4 pb-6 md:p-6 shadow-lg sticky top-0 z-40 md:relative no-print">
+        <div class="max-w-3xl mx-auto px-4">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+                        <i data-lucide="wallet" class="w-6 h-6"></i> 
+                        BudgetFlow
+                    </h1>
+                    <p class="text-emerald-100 text-xs md:text-sm mt-0.5" id="headerSubtitle">Kelola aliran kas bulanan.</p>
+                </div>
+                
+                <!-- Menu Button -->
+                <button onclick="toggleMenu()" class="text-emerald-100 hover:text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Global Summary Cards -->
+            <div class="grid grid-cols-3 gap-2 md:gap-4 mt-2 text-emerald-900">
+                <div class="bg-white/95 backdrop-blur rounded-lg p-2 md:p-4 shadow-sm text-center md:text-left">
+                    <span class="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-500 block">Masuk</span>
+                    <div class="text-sm md:text-xl font-bold text-emerald-600 truncate" id="globalIncome">Rp 0</div>
+                </div>
+                <div class="bg-white/95 backdrop-blur rounded-lg p-2 md:p-4 shadow-sm text-center md:text-left">
+                    <span class="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-500 block">Keluar</span>
+                    <div class="text-sm md:text-xl font-bold text-orange-600 truncate" id="globalExpense">Rp 0</div>
+                </div>
+                <div class="bg-white/95 backdrop-blur rounded-lg p-2 md:p-4 shadow-sm text-center md:text-left">
+                    <span class="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-500 block">Sisa</span>
+                    <div class="text-sm md:text-xl font-bold truncate text-blue-600" id="globalBalance">Rp 0</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- INFO BANNER (Data Safety) -->
+    <div id="infoBanner" class="bg-blue-50 border-b border-blue-100 p-3 relative no-print hidden">
+        <div class="max-w-3xl mx-auto flex items-start gap-3">
+             <i data-lucide="info" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"></i>
+             <div class="text-sm text-blue-800 flex-grow">
+               <strong>Tips:</strong> Buka di <strong>Chrome/Safari</strong> agar data aman. Jangan pakai browser bawaan WA/IG.
+               <button onclick="exportData()" class="block mt-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-bold w-fit hover:bg-blue-700">
+                 Backup Data Sekarang
+               </button>
+             </div>
+             <button onclick="document.getElementById('infoBanner').classList.add('hidden')" class="text-blue-400 hover:text-blue-600">
+               <i data-lucide="x" class="w-5 h-5"></i>
+             </button>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTENT -->
+    <main class="max-w-3xl mx-auto px-2 md:px-4 -mt-4 relative z-20 no-print">
+        
+        <!-- TABS CONTAINER -->
+        <div id="tabsContainer" class="flex overflow-x-auto pb-0 gap-1 md:gap-2 hide-scrollbar snap-x scroll-smooth">
+            <!-- Tabs will be injected here via JS -->
+        </div>
+
+        <!-- ACTIVE TAB CONTENT -->
+        <div class="bg-white rounded-b-xl rounded-tr-xl shadow-md p-3 md:p-6 min-h-[60vh] animate-in fade-in duration-300">
+            
+            <!-- Tab Header (Editable Title & Date) -->
+            <div class="mb-6 flex flex-col items-center justify-center gap-2">
+                <div class="relative group w-full max-w-[250px]">
+                    <input type="text" id="periodTitleInput" onchange="updatePeriodTitle(this.value)"
+                        class="text-center text-xl font-bold text-slate-800 border-b border-transparent hover:border-slate-300 focus:border-emerald-500 focus:outline-none py-1 bg-transparent w-full"
+                        placeholder="Nama Periode">
+                    <i data-lucide="edit-2" class="w-3 h-3 text-slate-300 absolute -right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></i>
+                </div>
+                <div class="flex items-center gap-1 w-full max-w-[200px]">
+                    <i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i>
+                    <input type="text" id="periodDateInput" onchange="updatePeriodDate(this.value)"
+                        class="text-center text-sm font-semibold text-slate-500 border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none py-1 bg-transparent w-full"
+                        placeholder="Tanggal (cth: Tgl 1-7)">
+                </div>
+            </div>
+
+            <!-- Income Input -->
+            <div class="mb-6 p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col items-center text-center">
+                <label class="text-xs font-bold uppercase text-emerald-800 tracking-wide mb-1">Pemasukan</label>
+                <div class="relative w-full max-w-xs">
+                    <input type="number" id="periodIncomeInput" oninput="updatePeriodIncome(this.value)"
+                        class="w-full text-center py-2 bg-transparent border-b-2 border-emerald-300 focus:border-emerald-600 focus:outline-none text-2xl font-bold text-emerald-700 placeholder-emerald-200"
+                        placeholder="0">
+                </div>
+            </div>
+
+            <!-- Summary Stats for Period -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center">
+                   <span class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Rencana</span>
+                   <div class="font-bold text-slate-700 text-base md:text-lg mt-1" id="periodTotalExpense">Rp 0</div>
+                </div>
+                <div id="periodBalanceBox" class="p-3 rounded-lg border text-center bg-blue-50 border-blue-100 text-blue-700">
+                   <span class="text-[10px] md:text-xs font-bold opacity-70 uppercase tracking-wide">Sisa Dana</span>
+                   <div class="font-bold text-base md:text-lg mt-1" id="periodBalance">Rp 0</div>
+                </div>
+            </div>
+
+            <!-- Add Expense Form -->
+            <div class="mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4 text-emerald-500"></i> Tambah Pengeluaran
+                </h3>
+                <form onsubmit="addExpense(event)" class="flex flex-col gap-3">
+                    <input type="text" id="newExpenseName" placeholder="Nama item (cth: Listrik)" class="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base">
+                    <div class="flex gap-2">
+                        <input type="number" id="newExpenseAmount" placeholder="Jumlah (Rp)" class="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-5 rounded-lg transition-colors flex items-center justify-center shadow-md">
+                            <i data-lucide="plus" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Expenses List -->
+            <div id="expensesList" class="space-y-3 pb-8">
+                <!-- Items injected here -->
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MOBILE STICKY FOOTER (Progress) -->
+    <div id="stickyFooter" class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:hidden z-30 no-print hidden">
+        <div class="flex justify-between text-xs text-slate-500 mb-1">
+           <span>Progres Bayar</span>
+           <span class="font-bold text-emerald-600" id="footerProgressText">0%</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2">
+           <div id="footerProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- MODAL: MAIN MENU -->
+    <div id="menuModal" class="fixed inset-0 z-50 hidden no-print">
+        <div class="absolute inset-0 bg-black/20 backdrop-blur-sm" onclick="toggleMenu()"></div>
+        <div class="absolute top-16 right-4 bg-white rounded-xl shadow-2xl w-64 overflow-hidden animate-in fade-in slide-in-from-top-5 duration-200">
+            <div class="p-4 bg-emerald-50 border-b border-emerald-100">
+                <h3 class="font-bold text-emerald-800">Menu Pengaturan</h3>
+            </div>
+            <div class="p-2">
+                <button onclick="openInstallGuide()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-emerald-50 rounded-lg text-emerald-700">
+                    <div class="bg-emerald-100 text-emerald-600 p-2 rounded-lg"><i data-lucide="smartphone" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Pasang Aplikasi</span><span class="block text-[10px] text-emerald-500">Add to Home Screen</span></div>
+                </button>
+                <div class="h-px bg-slate-100 my-1"></div>
+                <button onclick="openReport()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg text-slate-700">
+                    <div class="bg-purple-100 text-purple-600 p-2 rounded-lg"><i data-lucide="file-text" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Laporan Bulanan</span><span class="block text-[10px] text-slate-400">Preview & Cetak</span></div>
+                </button>
+                <div class="h-px bg-slate-100 my-1"></div>
+                <button onclick="deleteCurrentPeriod()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-red-50 rounded-lg text-red-600">
+                    <div class="bg-red-100 text-red-600 p-2 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Hapus Periode Ini</span><span class="block text-[10px] text-red-400">Hapus tab aktif</span></div>
+                </button>
+                <div class="h-px bg-slate-100 my-1"></div>
+                <button onclick="exportData()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg text-slate-700">
+                    <div class="bg-blue-100 text-blue-600 p-2 rounded-lg"><i data-lucide="download" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Simpan Backup</span><span class="block text-[10px] text-slate-400">Download .json</span></div>
+                </button>
+                <button onclick="document.getElementById('fileInput').click()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg text-slate-700">
+                    <div class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i data-lucide="upload" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Buka Backup</span><span class="block text-[10px] text-slate-400">Restore file</span></div>
+                </button>
+                <div class="h-px bg-slate-100 my-1"></div>
+                <button onclick="resetData()" class="w-full text-left flex items-center gap-3 p-3 hover:bg-red-50 rounded-lg text-red-600">
+                    <div class="bg-red-100 text-red-600 p-2 rounded-lg"><i data-lucide="refresh-cw" class="w-4 h-4"></i></div>
+                    <div><span class="block font-bold text-sm">Reset Data</span><span class="block text-[10px] text-red-400">Hapus semua</span></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PARTIAL PAYMENT -->
+    <div id="paymentModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4 no-print">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePaymentModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="p-4 bg-emerald-600 text-white flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2"><i data-lucide="coins" class="w-5 h-5"></i> Input Pembayaran</h3>
+                <button onclick="closePaymentModal()"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="payItemId">
+                <input type="hidden" id="payItemMax">
+                
+                <div class="mb-4">
+                    <label class="text-xs text-slate-500 uppercase font-bold">Nama Item</label>
+                    <div class="text-lg font-bold text-slate-800" id="payItemName">-</div>
+                </div>
+                <div class="mb-4">
+                    <label class="text-xs text-slate-500 uppercase font-bold">Total Tagihan</label>
+                    <div class="text-slate-600" id="payItemTotal">-</div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-emerald-800 mb-2">Jumlah yang dibayar:</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">Rp</span>
+                        <input type="number" id="payAmountInput" class="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xl font-bold text-emerald-700">
+                    </div>
+                    <div class="flex justify-between mt-2">
+                        <button onclick="setPayAmount(0)" class="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded">Reset (0)</button>
+                        <button onclick="setPayAmount('max')" class="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded font-bold">Set Lunas</button>
+                    </div>
+                </div>
+                <button onclick="submitPayment()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 transition-colors">Simpan Pembayaran</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REPORT VIEW -->
+    <div id="reportModal" class="fixed inset-0 z-[60] overflow-y-auto bg-slate-50 hidden no-print">
+        <div class="max-w-3xl mx-auto p-4 md:p-8">
+            <div class="flex justify-between items-center mb-6 no-print">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-6 h-6 text-emerald-600"></i> Preview Laporan
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="window.print()" class="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak / PDF
+                    </button>
+                    <button onclick="document.getElementById('reportModal').classList.add('hidden')" class="flex items-center gap-2 bg-slate-200 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-300">
+                        <i data-lucide="x" class="w-4 h-4"></i> Tutup
+                    </button>
+                </div>
+            </div>
+            <!-- Report Content Injection -->
+            <div id="reportContent" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0 print:w-full">
+                <!-- Content generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- DATA & STATE ---
+        const initialData = [
+            { id: 1, title: 'Periode 1', dateLabel: 'Tanggal 1 - 7', income: 0, expenses: [] },
+            { id: 2, title: 'Periode 2', dateLabel: 'Tanggal 8 - 14', income: 0, expenses: [] },
+            { id: 3, title: 'Periode 3', dateLabel: 'Tanggal 15 - 21', income: 0, expenses: [] },
+            { id: 4, title: 'Periode 4', dateLabel: 'Tanggal 22 - Akhir', income: 0, expenses: [] }
+        ];
+
+        let periods = [];
+        let activeTabId = null;
+
+        // --- INIT ---
+        window.onload = function() {
+            loadData();
+            // Show info banner if not visited before (using simple session check logic or just show always)
+            document.getElementById('infoBanner').classList.remove('hidden');
+            renderApp();
+        };
+
+        function loadData() {
+            const saved = localStorage.getItem('budgetFlowData');
+            if (saved) {
+                try {
+                    periods = JSON.parse(saved);
+                    // Migration: ensure paidAmount exists
+                    periods = periods.map(p => ({
+                        ...p,
+                        expenses: p.expenses.map(e => ({
+                            ...e,
+                            paidAmount: e.paidAmount !== undefined ? e.paidAmount : (e.completed ? e.amount : 0)
+                        }))
+                    }));
+                } catch(e) {
+                    periods = JSON.parse(JSON.stringify(initialData));
+                }
+            } else {
+                periods = JSON.parse(JSON.stringify(initialData));
+            }
+            if(periods.length > 0) activeTabId = periods[0].id;
+        }
+
+        function saveData() {
+            localStorage.setItem('budgetFlowData', JSON.stringify(periods));
+            renderApp();
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function renderApp() {
+            renderTabs();
+            renderActiveTabContent();
+            renderGlobalSummary();
+            lucide.createIcons();
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('tabsContainer');
+            container.innerHTML = '';
+            
+            periods.forEach(p => {
+                const isActive = p.id === activeTabId;
+                const btn = document.createElement('button');
+                btn.className = `snap-center flex-shrink-0 px-4 py-3 rounded-t-xl font-medium text-xs md:text-sm transition-all duration-200 border-b-0 min-w-[100px] text-center relative ${isActive ? 'bg-white text-emerald-700 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] pt-4 -mt-1 z-10' : 'bg-slate-200 text-slate-500 hover:bg-slate-300 mt-1'}`;
+                btn.onclick = () => { activeTabId = p.id; renderApp(); };
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'block font-bold';
+                titleSpan.innerText = p.title;
+                
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'text-[10px] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px] block mx-auto';
+                dateSpan.innerText = p.dateLabel;
+                
+                btn.appendChild(titleSpan);
+                btn.appendChild(dateSpan);
+                container.appendChild(btn);
+            });
+
+            // Add Period Button
+            const addBtn = document.createElement('button');
+            addBtn.className = "snap-center flex-shrink-0 px-4 py-3 rounded-t-xl font-medium text-xs md:text-sm transition-all duration-200 border-b-0 min-w-[50px] text-center relative bg-emerald-100 text-emerald-600 hover:bg-emerald-200 mt-1 flex items-center justify-center";
+            addBtn.onclick = addNewPeriod;
+            addBtn.innerHTML = '<i data-lucide="plus" class="w-5 h-5"></i>';
+            container.appendChild(addBtn);
+        }
+
+        function renderActiveTabContent() {
+            const activePeriod = periods.find(p => p.id === activeTabId);
+            if(!activePeriod) return;
+
+            // Inputs
+            document.getElementById('periodTitleInput').value = activePeriod.title;
+            document.getElementById('periodDateInput').value = activePeriod.dateLabel;
+            document.getElementById('periodIncomeInput').value = activePeriod.income || '';
+
+            // Stats
+            const totalExp = activePeriod.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const balance = activePeriod.income - totalExp;
+            
+            document.getElementById('periodTotalExpense').innerText = formatRupiah(totalExp);
+            const balEl = document.getElementById('periodBalance');
+            const balBox = document.getElementById('periodBalanceBox');
+            
+            balEl.innerText = formatRupiah(balance);
+            if(balance < 0) {
+                balBox.className = "p-3 rounded-lg border text-center bg-red-50 border-red-100 text-red-700";
+            } else {
+                balBox.className = "p-3 rounded-lg border text-center bg-blue-50 border-blue-100 text-blue-700";
+            }
+
+            // List
+            const listContainer = document.getElementById('expensesList');
+            listContainer.innerHTML = '';
+            
+            if(activePeriod.expenses.length === 0) {
+                listContainer.innerHTML = '<div class="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200"><p class="text-sm">List kosong.</p></div>';
+            } else {
+                activePeriod.expenses.forEach(item => {
+                    const percentPaid = Math.min(100, Math.round(((item.paidAmount || 0) / item.amount) * 100));
+                    const isCompleted = item.completed;
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `relative p-3 md:p-4 rounded-xl border transition-all duration-200 ${isCompleted ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-slate-200 shadow-sm'}`;
+                    
+                    // Checkbox Logic
+                    const checkIcon = isCompleted 
+                        ? `<i data-lucide="check-circle" class="w-6 h-6 fill-current text-emerald-500"></i>` 
+                        : `<i data-lucide="circle" class="w-6 h-6 text-slate-300"></i>`;
+                    
+                    // Progress Bar Logic
+                    const barColor = isCompleted ? 'bg-emerald-500' : (percentPaid > 0 ? 'bg-yellow-400' : 'bg-slate-200');
+                    const statusText = isCompleted ? 'Lunas' : (percentPaid > 0 ? `${percentPaid}%` : '');
+                    const textClass = (percentPaid > 0 && !isCompleted) ? 'text-yellow-600 font-bold' : '';
+
+                    itemDiv.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 p-2 -ml-2 cursor-pointer" onclick="toggleExpense(${activePeriod.id}, ${item.id})">
+                                ${checkIcon}
+                            </div>
+                            <div class="flex-grow ml-1">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="text-base font-medium ${isCompleted ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}">${item.name}</h4>
+                                    <div class="text-right">
+                                        <span class="text-sm font-bold whitespace-nowrap ml-2 ${isCompleted ? 'text-slate-400' : 'text-slate-700'}">${formatRupiah(item.amount)}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
+                                    <div class="w-full bg-slate-100 rounded-full h-1.5 mr-3 overflow-hidden">
+                                        <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${percentPaid}%"></div>
+                                    </div>
+                                    <span class="${textClass}">${statusText}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 ml-2 pl-2 border-l border-slate-100">
+                                <button onclick="openPaymentModal(${activePeriod.id}, ${item.id})" class="p-2 rounded-full transition-colors ${isCompleted ? 'text-slate-300 cursor-not-allowed' : 'text-blue-400 hover:text-blue-600 hover:bg-blue-50'}" ${isCompleted ? 'disabled' : ''}>
+                                    <i data-lucide="coins" class="w-5 h-5"></i>
+                                </button>
+                                <button onclick="deleteExpense(${activePeriod.id}, ${item.id})" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        ${(!isCompleted && item.paidAmount > 0) ? `
+                        <div class="mt-2 text-xs text-center bg-yellow-50 text-yellow-700 py-1 px-2 rounded font-medium flex justify-between">
+                            <span>Terbayar: ${formatRupiah(item.paidAmount)}</span>
+                            <span>Kurang: ${formatRupiah(item.amount - item.paidAmount)}</span>
+                        </div>` : ''}
+                    `;
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+
+            // Sticky Footer Progress
+            const totalPaid = activePeriod.expenses.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
+            const stickyFooter = document.getElementById('stickyFooter');
+            
+            if(activePeriod.expenses.length > 0) {
+                stickyFooter.classList.remove('hidden');
+                const totalPct = totalExp > 0 ? Math.round((totalPaid / totalExp) * 100) : 0;
+                document.getElementById('footerProgressText').innerText = totalPct + '%';
+                document.getElementById('footerProgressBar').style.width = totalPct + '%';
+            } else {
+                stickyFooter.classList.add('hidden');
+            }
+        }
+
+        function renderGlobalSummary() {
+            const grandIncome = periods.reduce((acc, p) => acc + p.income, 0);
+            const grandExpense = periods.reduce((acc, p) => acc + p.expenses.reduce((sum, item) => sum + item.amount, 0), 0);
+            const grandBalance = grandIncome - grandExpense;
+
+            document.getElementById('globalIncome').innerText = formatRupiah(grandIncome);
+            document.getElementById('globalExpense').innerText = formatRupiah(grandExpense);
+            const balEl = document.getElementById('globalBalance');
+            balEl.innerText = formatRupiah(grandBalance);
+            balEl.className = `text-sm md:text-xl font-bold truncate ${grandBalance < 0 ? 'text-red-500' : 'text-blue-600'}`;
+            
+            // Subtitle update
+            document.getElementById('headerSubtitle').innerText = `Kelola ${periods.length} aliran kas bulanan.`;
+        }
+
+        // --- ACTIONS ---
+        function updatePeriodTitle(val) {
+            const p = periods.find(p => p.id === activeTabId);
+            if(p) { p.title = val; saveData(); }
+        }
+        function updatePeriodDate(val) {
+            const p = periods.find(p => p.id === activeTabId);
+            if(p) { p.dateLabel = val; saveData(); }
+        }
+        function updatePeriodIncome(val) {
+            const p = periods.find(p => p.id === activeTabId);
+            if(p) { p.income = parseInt(val) || 0; saveData(); }
+        }
+
+        function addNewPeriod() {
+            const newId = Date.now();
+            periods.push({
+                id: newId,
+                title: `Periode ${periods.length + 1}`,
+                dateLabel: 'Tanggal...',
+                income: 0,
+                expenses: []
+            });
+            activeTabId = newId;
+            saveData();
+            setTimeout(() => {
+                const container = document.getElementById('tabsContainer');
+                container.scrollLeft = container.scrollWidth;
+            }, 100);
+        }
+
+        function deleteCurrentPeriod() {
+            if(periods.length <= 1) {
+                alert("Minimal harus ada 1 periode.");
+                return;
+            }
+            if(confirm("Hapus periode ini beserta datanya?")) {
+                periods = periods.filter(p => p.id !== activeTabId);
+                activeTabId = periods[0].id;
+                saveData();
+                toggleMenu();
+            }
+        }
+
+        function addExpense(e) {
+            e.preventDefault();
+            const name = document.getElementById('newExpenseName').value;
+            const amount = document.getElementById('newExpenseAmount').value;
+            if(!name || !amount) return;
+
+            const p = periods.find(p => p.id === activeTabId);
+            if(p) {
+                p.expenses.push({
+                    id: Date.now(),
+                    name: name,
+                    amount: parseInt(amount) || 0,
+                    paidAmount: 0,
+                    completed: false
+                });
+                document.getElementById('newExpenseName').value = '';
+                document.getElementById('newExpenseAmount').value = '';
+                saveData();
+            }
+        }
+
+        function deleteExpense(periodId, expenseId) {
+            const p = periods.find(p => p.id === periodId);
+            if(p) {
+                p.expenses = p.expenses.filter(e => e.id !== expenseId);
+                saveData();
+            }
+        }
+
+        function toggleExpense(periodId, expenseId) {
+            const p = periods.find(p => p.id === periodId);
+            if(p) {
+                const item = p.expenses.find(e => e.id === expenseId);
+                if(item) {
+                    const newPaid = item.paidAmount >= item.amount ? 0 : item.amount;
+                    item.paidAmount = newPaid;
+                    item.completed = newPaid >= item.amount;
+                    saveData();
+                }
+            }
+        }
+
+        // --- PARTIAL PAYMENT MODAL ---
+        let currentPayPeriodId = null;
+        let currentPayItemId = null;
+
+        function openPaymentModal(periodId, expenseId) {
+            const p = periods.find(p => p.id === periodId);
+            const item = p.expenses.find(e => e.id === expenseId);
+            
+            currentPayPeriodId = periodId;
+            currentPayItemId = expenseId;
+            
+            document.getElementById('payItemName').innerText = item.name;
+            document.getElementById('payItemTotal').innerText = formatRupiah(item.amount);
+            document.getElementById('payItemMax').value = item.amount;
+            document.getElementById('payAmountInput').value = item.paidAmount;
+            
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.add('hidden');
+            currentPayPeriodId = null;
+            currentPayItemId = null;
+        }
+
+        function setPayAmount(val) {
+            if(val === 'max') {
+                const max = document.getElementById('payItemMax').value;
+                document.getElementById('payAmountInput').value = max;
+            } else {
+                document.getElementById('payAmountInput').value = 0;
+            }
+        }
+
+        function submitPayment() {
+            const amount = parseInt(document.getElementById('payAmountInput').value) || 0;
+            const p = periods.find(p => p.id === currentPayPeriodId);
+            const item = p.expenses.find(e => e.id === currentPayItemId);
+            
+            const finalAmount = Math.min(Math.max(0, amount), item.amount);
+            item.paidAmount = finalAmount;
+            item.completed = finalAmount >= item.amount;
+            
+            saveData();
+            closePaymentModal();
+        }
+
+        // --- MENU & BACKUP ---
+        function toggleMenu() {
+            const menu = document.getElementById('menuModal');
+            menu.classList.toggle('hidden');
+        }
+
+        function resetData() {
+            if(confirm("Hapus SEMUA data dan reset ke awal?")) {
+                localStorage.removeItem('budgetFlowData');
+                loadData();
+                renderApp();
+                toggleMenu();
+            }
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify(periods, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const date = new Date().toISOString().slice(0,10);
+            link.download = `budgetflow-backup-${date}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toggleMenu();
+        }
+
+        function handleFileImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    if (Array.isArray(importedData) && importedData.length > 0) {
+                        if (confirm('Timpa data saat ini dengan file backup?')) {
+                            localStorage.setItem('budgetFlowData', JSON.stringify(importedData));
+                            loadData();
+                            renderApp();
+                            alert('Data berhasil dipulihkan!');
+                        }
+                    } else {
+                        alert('Format file salah.');
+                    }
+                } catch (e) {
+                    alert('Gagal membaca file.');
+                }
+                toggleMenu();
+                input.value = ''; // reset
+            };
+            reader.readAsText(file);
+        }
+
+        function openInstallGuide() {
+            alert("Cara pasang ke Layar Utama:\n1. Buka Menu Browser (titik tiga di pojok)\n2. Pilih 'Tambahkan ke Layar Utama' (Add to Home Screen)\n3. Aplikasi akan muncul di HP Anda!");
+            toggleMenu();
+        }
+
+        // --- REPORT GENERATION ---
+        function openReport() {
+            toggleMenu();
+            const grandIncome = periods.reduce((acc, p) => acc + p.income, 0);
+            const grandExpense = periods.reduce((acc, p) => acc + p.expenses.reduce((sum, item) => sum + item.amount, 0), 0);
+            const grandPaid = periods.reduce((acc, p) => acc + p.expenses.reduce((sum, item) => sum + (item.paidAmount||0), 0), 0);
+            const grandBalance = grandIncome - grandExpense;
+
+            let html = `
+                <div class="border-b-2 border-slate-800 pb-4 mb-6">
+                    <h1 class="text-3xl font-bold text-slate-900">Laporan Keuangan</h1>
+                    <p class="text-slate-500 mt-1">Dena UI Budget Report</p>
+                    <p class="text-sm text-slate-400 mt-4 text-right">Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="p-3 bg-slate-50 border rounded-lg"><p class="text-xs text-slate-500 uppercase">Total Pemasukan</p><p class="font-bold text-lg text-emerald-600">${formatRupiah(grandIncome)}</p></div>
+                    <div class="p-3 bg-slate-50 border rounded-lg"><p class="text-xs text-slate-500 uppercase">Rencana Pengeluaran</p><p class="font-bold text-lg text-slate-700">${formatRupiah(grandExpense)}</p></div>
+                    <div class="p-3 bg-slate-50 border rounded-lg"><p class="text-xs text-slate-500 uppercase">Terbayar</p><p class="font-bold text-lg text-blue-600">${formatRupiah(grandPaid)}</p></div>
+                    <div class="p-3 bg-slate-50 border rounded-lg"><p class="text-xs text-slate-500 uppercase">Sisa (Rencana)</p><p class="font-bold text-lg ${grandBalance<0?'text-red-600':'text-emerald-600'}">${formatRupiah(grandBalance)}</p></div>
+                </div>
+            `;
+
+            periods.forEach(p => {
+                const totalExp = p.expenses.reduce((sum, i) => sum + i.amount, 0);
+                const totalPaid = p.expenses.reduce((sum, i) => sum + (i.paidAmount||0), 0);
+                
+                html += `
+                <div class="break-inside-avoid mb-6">
+                    <div class="bg-slate-100 p-2 px-4 rounded-t-lg flex justify-between items-center border-b border-slate-200">
+                        <h3 class="font-bold text-slate-800">${p.title} <span class="text-sm font-normal text-slate-500">(${p.dateLabel})</span></h3>
+                        <div class="text-right"><span class="text-xs block text-slate-500">Masuk</span><span class="font-bold text-emerald-700">${formatRupiah(p.income)}</span></div>
+                    </div>
+                    <table class="w-full text-sm text-left border border-t-0 border-slate-200 rounded-b-lg">
+                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                            <tr><th class="p-2">Item</th><th class="p-2 text-right">Tagihan</th><th class="p-2 text-right">Bayar</th><th class="p-2 text-center">Status</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">`;
+                
+                if(p.expenses.length === 0) {
+                    html += `<tr><td colspan="4" class="p-4 text-center italic text-slate-400">Kosong</td></tr>`;
+                } else {
+                    p.expenses.forEach(item => {
+                        let badge = item.completed ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full">Lunas</span>' : (item.paidAmount > 0 ? '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">Cicil</span>' : '<span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded-full">Belum</span>');
+                        html += `<tr>
+                            <td class="p-2">${item.name}</td>
+                            <td class="p-2 text-right font-medium">${formatRupiah(item.amount)}</td>
+                            <td class="p-2 text-right text-slate-600">${formatRupiah(item.paidAmount||0)}</td>
+                            <td class="p-2 text-center">${badge}</td>
+                        </tr>`;
+                    });
+                }
+                
+                html += `</tbody>
+                        <tfoot class="bg-slate-50 font-semibold text-slate-700 border-t border-slate-200">
+                            <tr>
+                                <td class="p-2 text-right">Total:</td>
+                                <td class="p-2 text-right">${formatRupiah(totalExp)}</td>
+                                <td class="p-2 text-right text-emerald-700">${formatRupiah(totalPaid)}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>`;
+            });
+
+            html += `<div class="mt-12 pt-8 border-t border-slate-200 flex justify-end">
+                <div class="text-center w-40">
+                    <p class="text-sm text-slate-500 mb-16">Mengetahui,</p>
+                    <div class="border-b border-slate-400"></div>
+                    <p class="text-sm font-bold mt-2 text-slate-700">Pemilik Anggaran</p>
+                </div>
+            </div>`;
+
+            document.getElementById('reportContent').innerHTML = html;
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        // --- UTILS ---
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(angka);
+        }
+    </script>
+</body>
+</html>
